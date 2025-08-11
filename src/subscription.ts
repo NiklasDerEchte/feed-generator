@@ -10,25 +10,24 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
 
     const ops = await getOpsByType(evt)
 
-    // This logs the text of every post off the firehose.
-    // Just for fun :)
-    // Delete before actually using
-    for (const post of ops.posts.creates) {
-      console.log(post.record.text)
-    }
-
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .filter((create) => {
-        // only alf-related posts
-        return create.record.text.toLowerCase().includes('alf')
+        if(Array.isArray(create.record.langs) && create.record.langs.includes('en')) {
+          if(create.record.reply == undefined) {
+            console.log(`📝 ${create.record.text}`);
+            return true;
+          }
+        }
+        return false;
       })
       .map((create) => {
-        // map alf-related posts to a db row
+        // map posts to a db row
         return {
           uri: create.uri,
           cid: create.cid,
           indexedAt: new Date().toISOString(),
+          text: create.record.text
         }
       })
 
