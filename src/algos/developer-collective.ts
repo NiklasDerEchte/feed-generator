@@ -1,5 +1,6 @@
 import { QueryParams } from '../lexicon/types/app/bsky/feed/getFeedSkeleton'
 import { AppContext } from '../config'
+import * as db from '../db'
 
 // max 15 chars
 export const shortname = 'dev-collective'
@@ -32,34 +33,28 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
     'monsters',
   ];
 
-  let builder = ctx.db
-    .selectFrom('post')
-    .selectAll()
-    .orderBy('indexedAt', 'desc')
-    .orderBy('cid', 'desc')
-    .limit(params.limit)
+  // Baue dynamisch MongoDB-Filter
+  const includeRegex = includeTerms.map(term => new RegExp(term, 'i'));
+  const excludeRegex = excludeTerms.map(term => new RegExp(term, 'i'));
+
+  const filter: any = {
+    $and: [
+      { $or: includeRegex.map(r => ({ text: r })) },
+      ...excludeRegex.map(r => ({ text: { $not: r } })),
+    ]
+  };
 
   if (params.cursor) {
     const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    builder = builder.where('post.indexedAt', '<', timeStr);
+    filter.indexedAt = { $lt: timeStr };
   }
 
-  // LIKE-Klauseln dynamisch mit Arrays
-  builder = builder.where((eb) =>
-    eb.or(
-      includeTerms.map((term) => eb('text', 'like', `%${term}%`))
-    )
-  );
+  const res = await db.PostModel.find(filter)
+    .sort({ indexedAt: -1, cid: -1 })
+    .limit(params.limit)
+    .exec();
 
-  builder = builder.where((eb) =>
-    eb.and(
-      excludeTerms.map((term) => eb('text', 'not like', `%${term}%`))
-    )
-  );
-
-  const res = await builder.execute();
-
-  const feed = res.map((row) => ({
+  const feed = res.map((row: any) => ({
     post: row.uri,
   }));
 

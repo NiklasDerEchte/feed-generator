@@ -5,7 +5,7 @@ import { DidResolver, MemoryCache } from '@atproto/identity'
 import { createServer } from './lexicon'
 import feedGeneration from './methods/feed-generation'
 import describeGenerator from './methods/describe-generator'
-import { createDb, Database, migrateToLatest } from './db'
+import { connectMongo } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
 import wellKnown from './well-known'
@@ -13,13 +13,13 @@ import wellKnown from './well-known'
 export class FeedGenerator {
   public app: express.Application
   public server?: http.Server
-  public db: Database
+  public db: any
   public firehose: FirehoseSubscription
   public cfg: Config
 
   constructor(
     app: express.Application,
-    db: Database,
+    db: any,
     firehose: FirehoseSubscription,
     cfg: Config,
   ) {
@@ -31,8 +31,8 @@ export class FeedGenerator {
 
   static create(cfg: Config) {
     const app = express()
-    const db = createDb(cfg.sqliteLocation)
-    const firehose = new FirehoseSubscription(db, cfg.subscriptionEndpoint)
+    const db = connectMongo(cfg.mongoURI)
+    const firehose = new FirehoseSubscription(cfg.subscriptionEndpoint)
 
     const didCache = new MemoryCache()
     const didResolver = new DidResolver({
@@ -49,7 +49,6 @@ export class FeedGenerator {
       },
     })
     const ctx: AppContext = {
-      db,
       didResolver,
       cfg,
     }
@@ -62,7 +61,6 @@ export class FeedGenerator {
   }
 
   async start(): Promise<http.Server> {
-    await migrateToLatest(this.db)
     this.firehose.run(this.cfg.subscriptionReconnectDelay)
     this.server = this.app.listen(this.cfg.port, this.cfg.listenhost)
     await events.once(this.server, 'listening')
