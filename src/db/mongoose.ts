@@ -12,7 +12,7 @@ const postSchema = new mongoose.Schema({
   uri: { type: String, required: true, unique: true },
   cid: { type: String, required: true },
   indexedAt: { type: String, required: true },
-  text: { type: String, required: true },
+  record: { type: Object, required: true },
 });
 export const PostModel = mongoose.model('Post', postSchema);
 

@@ -15,7 +15,7 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     const postsToCreate = ops.posts.creates
       .filter((create) => {
         if (Array.isArray(create.record.langs) && create.record.langs.includes('en')) {
-          if (create.record.reply == undefined) {
+          if (create.record.reply == undefined && !(create.author.toLowerCase().includes("bot"))) {
             console.log(`📝 ${create.record.text}`);
             return true;
           }
@@ -24,14 +24,11 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
       })
       .map((create) => {
         return {
-          uri: create.uri,
-          cid: create.cid,
+          ...create,
           indexedAt: new Date().toISOString(),
-          text: create.record.text,
-        };
+        }
       });
 
-    // Zugriff auf das PostModel aus dem Kontext
     const PostModel = db.PostModel;
 
     if (postsToDelete.length > 0) {
