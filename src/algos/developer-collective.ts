@@ -3,10 +3,14 @@ import { AppContext } from '../config'
 import * as db from '../db'
 
 // max 15 chars
-export const shortname = 'dev-collective'
+export const shortname = 'devCollective'
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 export const handler = async (ctx: AppContext, params: QueryParams) => {
-  // Begriffe als Arrays
+
   const includeTerms = [
     'python',
     'github.com',
@@ -33,39 +37,46 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
     'monsters',
   ];
 
-  // Baue dynamisch MongoDB-Filter
-  const includeRegex = includeTerms.map(term => new RegExp(term, 'i'));
-  const excludeRegex = excludeTerms.map(term => new RegExp(term, 'i'));
+  try {
+    const includeRegex = includeTerms.map(term => new RegExp(escapeRegExp(term), 'i'));
+    const excludeRegex = excludeTerms.map(term => new RegExp(escapeRegExp(term), 'i'));
 
-  const filter: any = {
-    $and: [
-      { $or: includeRegex.map(r => ({ text: r })) },
-      ...excludeRegex.map(r => ({ text: { $not: r } })),
-    ]
-  };
+    const filter: any = {
+      $and: [
+        { $or: includeRegex.map(r => ({ 'record.text': r })) },
+        ...excludeRegex.map(r => ({ 'record.text': { $not: r } })),
+      ]
+    };
 
-  if (params.cursor) {
-    const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    filter.indexedAt = { $lt: timeStr };
+    if (params.cursor) {
+      const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
+      filter.indexedAt = { $lt: timeStr };
+    }
+
+    const res = await db.PostModel.find()
+      .sort({ indexedAt: -1, cid: -1 })
+      .limit(params.limit)
+      .exec();
+
+    const feed = res.map((row: any) => ({
+      post: row.uri,
+    }));
+
+    let cursor: string | undefined;
+    const last = res.at(-1);
+    if (last) {
+      cursor = new Date(last.indexedAt).getTime().toString(10);
+    }
+
+    return {
+      cursor,
+      feed,
+    };
+  } catch (error) {
+    console.error('Error in developer-collective handler:', error);
+    return {
+      cursor: undefined,
+      feed: [],
+    };
   }
-
-  const res = await db.PostModel.find(filter)
-    .sort({ indexedAt: -1, cid: -1 })
-    .limit(params.limit)
-    .exec();
-
-  const feed = res.map((row: any) => ({
-    post: row.uri,
-  }));
-
-  let cursor: string | undefined;
-  const last = res.at(-1);
-  if (last) {
-    cursor = new Date(last.indexedAt).getTime().toString(10);
-  }
-
-  return {
-    cursor,
-    feed,
-  };
 }

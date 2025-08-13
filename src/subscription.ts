@@ -15,8 +15,8 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     const postsToCreate = ops.posts.creates
       .filter((create) => {
         if (Array.isArray(create.record.langs) && create.record.langs.includes('en')) {
-          if (create.record.reply == undefined && !(create.author.toLowerCase().includes("bot"))) {
-            console.log(`📝 ${create.record.text}`);
+          if (create.record.reply == undefined) {
+            //console.log(`📝 ${create.record.text}`);
             return true;
           }
         }
