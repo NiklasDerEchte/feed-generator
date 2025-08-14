@@ -9,6 +9,8 @@ import { connectMongo } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
 import wellKnown from './well-known'
+import cron from 'node-cron';
+import * as database from './db'
 
 export class FeedGenerator {
   public app: express.Application
@@ -39,6 +41,11 @@ export class FeedGenerator {
       plcUrl: 'https://plc.directory',
       didCache,
     })
+
+    cron.schedule('0 20 * * *', async () => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      await database.PostModel.deleteMany({ indexedAt: { $lt: sevenDaysAgo } });
+    });
 
     const server = createServer({
       validateResponse: true,
