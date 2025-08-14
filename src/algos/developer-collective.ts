@@ -54,7 +54,7 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
     }
 
     const res = await db.PostModel.find(filter)
-      .sort({ indexedAt: -1, cid: -1 })
+      .sort({ indexedAt: -1 })
       .limit(params.limit)
       .exec();
 
