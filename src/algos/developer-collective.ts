@@ -53,7 +53,7 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
       filter.indexedAt = { $lt: timeStr };
     }
 
-    const res = await db.PostModel.find()
+    const res = await db.PostModel.find(filter)
       .sort({ indexedAt: -1, cid: -1 })
       .limit(params.limit)
       .exec();
